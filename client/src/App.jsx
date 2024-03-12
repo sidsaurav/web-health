@@ -1,17 +1,21 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Inputbox from './components/Inputbox'
 import Head from './components/Head'
 
 const App = () => {
-  const [status, setStatus] = useState(200)
+  const [status, setStatus] = useState(201)
   const [statusText, setStatusText] = useState('OK')
   const [resTime, setResTime] = useState(1000)
+  // console.log(status, statusText, resTime)
+  useEffect(() => {}, [status, statusText, resTime])
 
   return (
     <div>
       <div className='bg-[#08003a] pb-16 flex flex-col items-center'>
         <Head></Head>
-        <Inputbox></Inputbox>
+        <Inputbox
+          changeFn={{ setStatus, setStatusText, setResTime }}
+        ></Inputbox>
       </div>
 
       <div className='flex flex-col items-center mt-12 gap-3'>
