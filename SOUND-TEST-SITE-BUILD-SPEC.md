@@ -1127,7 +1127,7 @@ Each milestone ends with a commit. From M3 on, `npm test` must pass before commi
 3. Google Search Console: verify (meta tag env var or DNS), submit `sitemap-index.xml`, request indexing for home + 11 launch pages.
 4. Apply for AdSense once the 12 launch pages + legal pages are live; after approval set `PUBLIC_ADSENSE_CLIENT` and the 4 slot IDs, enable the EEA/UK consent message and US state regulations, redeploy, confirm `ads.txt`.
 5. Link building (competitors gained ~60 referring domains in 3 months — match that pace): tool directories; genuinely helpful answers in r/headphones, r/hometheater, r/techsupport, r/audiophile (follow each subreddit's self-promotion rules); open-source the audio engine on GitHub with a link back; a "Show HN"-style launch post focused on privacy and zero dependencies; outreach to tech blogs that write "how to test your speakers/headphones" guides.
-6. Track rankings for ~20 keywords (home terms + each page's primary) in OpenSEO (project "Micro-Tools Niche Research", saved cluster `cluster-sound-test`, 69 keywords).
+6. Track rankings for ~20 keywords (home terms + each page's primary) in OpenSEO (project "Micro-Tools Niche Research", saved cluster `cluster-sound-test`, 63 keywords).
 7. Month-3 checkpoint: target ≥ 5 sub-pages in top 10 and home on page 1. Review Search Console queries (especially "mosquito sound" intent) and expand content where impressions are high but CTR is low.
 8. Phase 3 candidates if growth is good: pitch detector, dB meter (microphone), more Hz pages only where Search Console shows impressions.
 
