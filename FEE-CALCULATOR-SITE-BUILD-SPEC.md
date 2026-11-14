@@ -11,7 +11,7 @@
 0. [Instructions for the builder agent](#0-instructions-for-the-builder-agent)
 1. [Project summary](#1-project-summary)
 2. [Research context](#2-research-context)
-3. [Scope and phasing](#3-scope-and-phasing)
+3. [Scope and build order](#3-scope-and-build-order)
 4. [Tech stack, versions and hard constraints](#4-tech-stack-versions-and-hard-constraints)
 5. [Project structure](#5-project-structure)
 6. [Configuration and environment variables](#6-configuration-and-environment-variables)
@@ -46,7 +46,7 @@
 3. **Fee accuracy is the product.** Every number in Appendix A carries a status:
    - `VERIFIED` — read on the official page on 2026-11-14 (quote + URL given). Use as-is, but re-open the URL once during Milestone 1 and confirm nothing changed.
    - `PARTIAL` — official source found but a detail is ambiguous or conflicting. You must open the listed URL(s) and resolve it; record the resolution and quote in `DECISIONS.md` and in the schedule's `sources[].quote`.
-   - `UNVERIFIED` — from secondary sources or old pages. You must verify against the official page before shipping that calculator. If you cannot verify (page blocked/login), ship the calculator **only** with the affected fee as a user-editable input pre-filled with the best-known value and a visible "Confirm this rate on {platform}'s fee page" note — or move the page to a later phase. Never present an unverified number as fact.
+   - `UNVERIFIED` — from secondary sources or old pages. You must verify against the official page before shipping that calculator. If you cannot verify (page blocked/login), ship the calculator **only** with the affected fee as a user-editable input pre-filled with the best-known value and a visible "Confirm this rate on {platform}'s fee page" note — or, for Copart/IAA only, leave the page out of the launch (§3.2). Never present an unverified number as fact.
    Use Playwright (already a dev dependency) to render JavaScript-heavy official pages when a plain fetch returns an empty body.
 4. **Do not ask questions unless truly blocked.** Every decision has a default here. Record any decision not covered by this spec in `fee-calculator-site/DECISIONS.md`.
 5. **Commit after each milestone.** From Milestone 3 onward run the full test suite before every commit. Never weaken or skip a test to make it pass.
@@ -66,7 +66,7 @@
 | How it works | 100% client-side static site. Fee schedules are typed data in the repo with official sources and verification dates. No backend, no accounts, no external APIs |
 | Monetisation | Google AdSense (US traffic). This niche has the highest CPCs in our research: $4–$68 per click on core terms |
 | Framework | Astro (static), vanilla TypeScript, plain CSS |
-| Pages | ~45 at full scope: home, 2 hubs, 14 marketplace calculators, 12 payment calculators, 7 comparison pages, 2 vehicle-auction calculators (phase 3), trust/legal pages |
+| Pages | 43, all launched together: home, 2 hubs, 14 marketplace calculators, 12 payment calculators, 7 comparison pages and 7 trust/legal pages. Two vehicle-auction calculators are added only if their fee tables can be verified during the build (§3.2) |
 | Biggest keyword | `ebay fee calculator` — 40,500 US searches/month, KD 16, CPC $7.74 |
 
 ### Goals (priority order)
@@ -110,28 +110,27 @@
 
 ---
 
-## 3. Scope and phasing
+## 3. Scope and build order
 
-### 3.1 Phase 1 — launch (build first; must be complete for "done")
-| Group | Pages |
-|---|---|
-| Core | Home (compare tool + directory), Marketplace fees hub, Payment processing fees hub |
-| Marketplaces | eBay fee, eBay profit, Etsy, Depop, Poshmark, Mercari, Whatnot, Grailed |
-| Payments | Stripe, PayPal, PayPal Goods & Services, Square, Venmo, Venmo instant transfer, Cash App |
-| Comparisons | Depop vs Poshmark, Square vs Stripe fees |
-| Trust/legal | How we verify fees, Fee updates log, About, Privacy, Terms, Contact, 404 |
+**Everything launches together in one release.** The order below is only the order to *build* in. The highest-value calculators come first, so if a long build stalls the most important pages are already finished and tested. Nothing is deployed until the whole launch set passes `npm test`.
 
-### 3.2 Phase 2 — also part of this build (do after Phase 1 is green)
-| Group | Pages |
-|---|---|
-| Marketplaces | Facebook Marketplace, TikTok Shop, StockX, Reverb, TCGplayer, KDP royalty |
-| Payments | Stripe ACH, Stripe invoice, Stripe Connect, Clover, Credit card processing (any provider / surcharge) |
-| Comparisons | Stripe vs PayPal fees, Poshmark vs Mercari, eBay vs Mercari, eBay vs Poshmark, Whatnot vs eBay |
+### 3.1 Launch set (build in this order)
+| Order | Group | Pages |
+|---|---|---|
+| 1 | Core | Home (compare tool + directory), Marketplace fees hub, Payment processing fees hub |
+| 2 | Highest-value calculators | eBay fee, eBay profit, Etsy, Depop, Poshmark, Mercari, Whatnot, Grailed · Stripe, PayPal, PayPal Goods & Services, Square, Venmo, Venmo instant transfer, Cash App |
+| 3 | Comparisons | Depop vs Poshmark, Square vs Stripe fees, Stripe vs PayPal fees, Poshmark vs Mercari, eBay vs Mercari, eBay vs Poshmark, Whatnot vs eBay |
+| 4 | Remaining calculators | Facebook Marketplace, TikTok Shop, StockX, Reverb, TCGplayer, KDP royalty · Stripe ACH, Stripe invoice, Stripe Connect, Clover, Credit card processing (any provider / surcharge) |
+| 5 | Trust/legal | How we verify fees, Fee updates log, About, Privacy, Terms, Contact, 404 |
 
-### 3.3 Phase 3 — only if fee tables can be verified (otherwise leave a TODO in README)
-Copart fee calculator (4,400/mo, KD 0) and IAA fee calculator (1,300/mo, KD 0). Their buyer-fee tier tables are large, change periodically, and are JavaScript-rendered (Copart) or embedded as images (IAA). Build only if you can transcribe the complete current tables from the official pages (use Playwright rendering; IAA's tables are SVG images — check whether the SVG contains text nodes) and record exact sources. Otherwise skip.
+That is 43 pages. Fee verification (§0.3) applies to every one of them. A page whose rate can't be confirmed still launches, but with that rate as an editable input and a "confirm on the platform's fee page" note.
 
-### 3.4 Out of scope (do NOT build) — with reasons
+### 3.2 Conditional pages: Copart and IAA
+Copart fee calculator (4,400/mo, KD 0) and IAA fee calculator (1,300/mo, KD 0). Their buyer-fee tier tables are large, change periodically, and are hard to read: Copart's page is rendered by JavaScript and IAA's tables are embedded as images. Attempt the transcription during Milestone 1. Use Playwright to render the pages, and check whether IAA's SVG images contain text nodes.
+- **If the complete current tables can be transcribed and sourced:** build both pages and launch them with everything else.
+- **If not:** launch without them. Leave a README TODO with the reasons and source URLs, and keep them out of the nav, sitemap and internal links. They can be added once the data is confirmed. **Never ship them with guessed tables.**
+
+### 3.3 Out of scope (do NOT build) — with reasons
 | Excluded | Reason |
 |---|---|
 | Amazon FBA fee calculator | KD 24, very complex size-tier/fulfilment tables that change often; heavy maintenance |
@@ -202,7 +201,7 @@ fee-calculator-site/
 │   │   │       ├── ebay.ts  etsy.ts  depop.ts  poshmark.ts  mercari.ts  whatnot.ts  grailed.ts
 │   │   │       ├── facebook-marketplace.ts  tiktok-shop.ts  stockx.ts  reverb.ts  tcgplayer.ts  kdp.ts
 │   │   │       ├── stripe.ts  paypal.ts  square.ts  venmo.ts  cash-app.ts  clover.ts  generic-card.ts
-│   │   │       └── (phase 3) copart.ts  iaa.ts
+│   │   │       └── (conditional) copart.ts  iaa.ts
 │   │   ├── url-state.ts           # encode/decode calculator state in query string
 │   │   └── storage.ts
 │   ├── components/
@@ -333,7 +332,8 @@ export interface PageEntry {
   id: string; path: string; group: Group; navLabel: string; cardTitle: string; cardBlurb: string;
   scheduleId?: string;            // which fee schedule powers the page
   related: string[];              // 3–6 page ids
-  phase: 1 | 2 | 3;
+  conditional?: boolean;       // true only for Copart/IAA (§3.2)
+  enabled: boolean;             // false → excluded from build, nav, sitemap and links
 }
 ```
 
@@ -456,7 +456,7 @@ Behaviour:
 - Live region announces the new payout (debounced 600 ms) for screen readers.
 
 ### 10.2 `CompareTool.astro`
-Props: `kind: 'marketplace' | 'processor'`, `ids?: string[]` (default all of that kind in the current phase).
+Props: `kind: 'marketplace' | 'processor'`, `ids?: string[]` (default: all enabled schedules of that kind).
 - Inputs (marketplace): sale price, shipping charged, tax rate, item cost, your shipping cost. (Processor): amount, card type (domestic/international), channel (online/in-person/keyed/invoice).
 - Output: sortable table — platform, total fees, effective %, you keep, profit, notes/assumptions, link to that platform's calculator (prefilled via URL state). Best row highlighted ("Most you keep").
 - `data-testid="compare-table"`, rows `compare-row-<id>` with `data-payout`.
@@ -506,7 +506,7 @@ Conventions:
 - H1: `Payment Processing Fees Compared`
 - Content: comparison table by channel (online card, in-person, keyed, invoice, ACH, international surcharge, instant payout fee), processor `CompareTool`, explainer (interchange basics, flat-rate vs interchange-plus, surcharging rules overview with "check your state and card network rules"). ≥ 600 words.
 
-### 11.2 Marketplace calculators (Phase 1)
+### 11.2 Marketplace calculators: highest-value group
 
 | Path | Title | Meta (140–160) | H1 | Primary / secondary keywords (vol · KD · CPC) |
 |---|---|---|---|---|
@@ -521,7 +521,7 @@ Conventions:
 
 > Note on meta descriptions that quote rates (Whatnot, Grailed, Depop, Poshmark): generate them from schedule constants at build time so they stay correct after fee changes; the strings above show the expected output with current fees.
 
-**Page-specific content requirements (Phase 1 marketplaces):**
+**Page-specific content requirements (these marketplaces):**
 - **eBay fee calculator** (≥ 900 words): options = category (full table from Appendix A.1), store subscription (None/Starter/Basic/Premium/Anchor/Enterprise), Promoted Listings General ad rate %, international buyer (1.65% international fee), below-standard seller (advanced), item type (athletic shoes ≥ $150 rule auto-handled by category). Sections: how FVF works (incl. that it's charged on item + shipping + tax), per-order fee, category table, store vs no-store table and break-even ("a Basic store pays for itself when monthly sales exceed $X" — compute from data), promoted listings, international fee, below-standard surcharge, insertion fees (250 free/month, $0.35 after), how to pay less. FAQ: How much does eBay take from a sale? · Does eBay charge fees on shipping and sales tax? · What is eBay's final value fee in {YEAR}? · Is an eBay Store worth it? · How do promoted listing fees work? · What is the per-order fee? · Does eBay charge a fee if my item doesn't sell?
 - **eBay profit calculator:** same schedule, `variant="profit"`: cost fields open by default, reverse mode default target = profit; sections on ROI vs margin, pricing strategy, break-even price; links to fee calculator (avoid duplicating its content — focus on profit, sourcing, ROI).
 - **Etsy:** options = Offsite Ads (none / 15% / 12% — with the $10k rule explained), listing fee count (default 1 listing = $0.20; multi-quantity note: $0.20 per additional quantity sold), currency conversion (2.5% if listing currency ≠ payout currency). Etsy Payments processing 3% + $0.25 (US). Sections incl. Etsy Ads (separate, budget-based), Share & Save (mention only if verified), pricing formula for makers (materials + labour + fees).
@@ -531,7 +531,7 @@ Conventions:
 - **Whatnot:** options = commission tier (8% default; selectable 7.5/7/6.5% and "custom %" — **verify tier table**), category (standard 8% vs Coins & Money / Pallets 4%), shipping and tax inputs (processing applies to total incl. shipping and tax; commission excludes them). Note the limited-time 0%-above-$1,500 promotion only as a dated note if still active.
 - **Grailed:** commission 6% (< $120, min $1.99) / 9% (≥ $120); Grailed label toggle (commission base excludes shipping when using a Grailed label); processing (verify current rate) domestic vs international.
 
-### 11.3 Payment calculators (Phase 1)
+### 11.3 Payment calculators: highest-value group
 
 | Path | Title | Meta | H1 | Keywords |
 |---|---|---|---|---|
@@ -543,7 +543,7 @@ Conventions:
 | `/venmo-instant-transfer-fee/` | `Venmo Instant Transfer Fee Calculator ({YEAR})` | `Calculate Venmo's instant transfer fee, including the minimum and maximum, see how much reaches your bank, and decide if a free standard transfer is better.` | `Venmo Instant Transfer Fee Calculator` | venmo instant transfer fee 4,400·9·**$14.60**; venmo instant transfer fee calculator 260 |
 | `/cash-app-fee-calculator/` | `Cash App Fee Calculator {YEAR} – Instant & Business Fees` | `Calculate Cash App instant deposit fees, business payment fees and card-funded payments. See what you receive and when a free standard deposit makes sense.` | `Cash App Fee Calculator` | cash app fee calculator 1,300·0; cash app fees 3,600·28·$3.30; cash app instant transfer fee 2,400·5; cash app business fee 210·9·$11.82; cash app instant transfer fee calculator 390·1·$6.78 |
 
-**Page-specific requirements (Phase 1 payments):**
+**Page-specific requirements (these payment calculators):**
 - **Every processor calculator** has two modes: "I charge $X → I receive $Y" and "I want to receive $Y → charge $X" (fee pass-through). Show a short, careful **surcharging note**: "Passing card fees to customers (surcharging) is restricted: card networks cap surcharges, surcharges aren't allowed on debit cards, and some states limit or ban them. Check your processor's rules and your state's laws." No legal advice.
 - **Stripe:** options = payment type (domestic card, international card, + currency conversion, manually entered card, ACH Direct Debit, Terminal in-person, Link), invoicing (none / Invoicing Starter 0.4% / Plus 0.5%), instant payout toggle (1.5%, min $0.50 — applied to the payout). Sections: standard pricing, international and FX surcharges, ACH vs card (with savings example at $1,000/$5,000), invoicing fee, disputes ($15), instant payouts, custom/IC+ pricing for large businesses (mention only), "How to pass Stripe fees to customers" (with the formula and the surcharge caution).
 - **PayPal:** options = transaction type (PayPal Checkout / Guest Checkout / Pay with Venmo 3.49% + $0.49; standard card 2.99% + $0.49; Pay Later 4.99% + $0.49; QR code 2.29% + $0.09; in-person card 2.29% + $0.09; keyed card 3.49% + $0.09; invoice (same as payment method used) / invoice paid by bank ACH 1% capped $10), international buyer (+1.5%). Page shows "PayPal fee table last updated by PayPal on Nov 4, 2026".
@@ -553,7 +553,7 @@ Conventions:
 - **Venmo instant transfer:** single-purpose calculator: amount → fee (1.75%, min/max) → arrives; table of fees for $10, $14.29 (min threshold), $50, $100, $500, $1,000, $1,428.57 (cap threshold), $5,000; standard vs instant comparison; limits (verify).
 - **Cash App:** options = business payment (2.6% + $0.15 from a customer's Cash App; 3% Tap to Pay), instant deposit (conflicting ranges 0.5–1.75% vs 0.5–2.5%, min $0.25, cap $75 → verify; until verified show as an editable rate with default 1.75%), add money from credit card 3%, paper money deposit $1.
 
-### 11.4 Comparison pages (Phase 1: first two; Phase 2: rest)
+### 11.4 Comparison pages
 
 | Path | Title | Meta | H1 | Keywords |
 |---|---|---|---|---|
@@ -567,7 +567,7 @@ Conventions:
 
 Each comparison page: a two-platform calculator (`CompareTool` limited to the two ids, side-by-side result cards with a "difference" line), a build-time chart/table of payout differences across $10–$500, sections on fees, shipping (who pays), buyer audience and categories, payout speed, selling experience (neutral, factual, no fabricated stats), "which should you choose" decision list, FAQ (5). ≥ 900 words. Note: "depop vs poshmark" searchers want more than fees — cover audience, categories and selling experience honestly.
 
-### 11.5 Phase 2 calculators
+### 11.5 Remaining calculators
 
 | Path | Title | Meta | H1 | Keywords |
 |---|---|---|---|---|
@@ -590,8 +590,8 @@ Requirements:
 - **Credit card processing (generic):** custom % + fixed, monthly fees, volume → effective rate; preset dropdown filled from processor schedules (Stripe, Square, PayPal, Clover, plus **Toast as a user-entered rate**, because Toast's pay-as-you-go rate isn't published — explain); surcharge calculator mode with the compliance caution.
 - **Stripe Connect:** inputs: payments/month, average payment, payouts/month, active accounts → monthly cost (verified constants: $2 per monthly active account, 0.25% + 25¢ per payout, card fees per payment). Note "Stripe handles pricing" option = no platform fee.
 
-### 11.6 Phase 3 (conditional)
-`/copart-fee-calculator/` (`Copart Fee Calculator {YEAR} – Buyer Fees & Total Cost`) and `/iaa-fee-calculator/` (`IAA Fee Calculator {YEAR} – Buyer Fees & Total Cost`; also target "iaai fee calculator" 1,300·0·$8.07, "iaai fees" 880·0·$9.04). Only with fully verified tables (see §3.3, Appendix A.20–21). Inputs: bid amount, member type, payment method, title type, internet/virtual bid → buyer fee, bid fee, gate/service, title, environmental fees, total cost. Strong disclaimer: fees vary by location and change; confirm on the auction site before bidding.
+### 11.6 Conditional: vehicle auction calculators
+`/copart-fee-calculator/` (`Copart Fee Calculator {YEAR} – Buyer Fees & Total Cost`) and `/iaa-fee-calculator/` (`IAA Fee Calculator {YEAR} – Buyer Fees & Total Cost`; also target "iaai fee calculator" 1,300·0·$8.07, "iaai fees" 880·0·$9.04). Only with fully verified tables (see §3.2, Appendix A.21–22). Inputs: bid amount, member type, payment method, title type, internet/virtual bid → buyer fee, bid fee, gate/service, title, environmental fees, total cost. Strong disclaimer: fees vary by location and change; confirm on the auction site before bidding.
 
 ---
 
@@ -694,7 +694,7 @@ Dev, test, deploy, env vars, **how to update a fee** (edit schedule → update `
 | `solve.test.ts` | Reverse solver returns the **minimum** price, cross-checked against an independent brute-force search over every cent: Poshmark target payout $12.00 → **$14.95**; target $12.01 → **$14.96** (still under the flat-fee threshold — a naive solver that assumes monotonic fees would wrongly return a price above $15); eBay target payout $8.60 (no shipping/tax) → **$10.42** (prices up to $10.00 can't reach it because of the per-order step); Facebook minimum-fee region; processors: closed form vs brute force for 1,000 random targets; unreachable target → null |
 | `compare.test.ts` | Sorting by payout; assumptions footnotes present; identical inputs across platforms |
 | `url-state.test.ts` | Round-trip encode/decode; clamping of malicious/out-of-range params; unknown params ignored |
-| `registry.test.ts` | Paths unique; related ids resolve; every page with `scheduleId` maps to an existing schedule; phase consistency |
+| `registry.test.ts` | Paths unique; related ids resolve; every page with `scheduleId` maps to an existing schedule; disabled conditional pages appear nowhere (nav, footer, sitemap, related links, compare tool) |
 | `freshness.test.ts` | **Fails** if any shipped schedule's `verifiedAt` is older than 180 days relative to build date; **warns** (console) at > 90 days; fails if any shipped schedule has `status: 'unverified'` **unless** the affected rate is exposed as an editable input (`schedule.unverifiedFields` listed and UI shows the confirm note) |
 | `history.test.ts` | Fee history entries sorted desc, each with https source and existing platform id |
 
@@ -768,20 +768,20 @@ This site lives or dies on current data. Build these into the repo:
 | # | Milestone | Deliverables | Acceptance |
 |---|---|---|---|
 | **M0** | Setup | Scaffold, configs, scripts, `.env.example`, README skeleton, DECISIONS.md, Playwright per environment | `npm run build` + `npm run check` pass |
-| **M1** | Fee verification + engine core | Re-open every `VERIFIED` source and confirm; resolve all `PARTIAL`/`UNVERIFIED` items needed for Phase 1 (record quotes/decisions); `money.ts`, `primitives.ts`, `types.ts`, `solve.ts`, `compare.ts`, `url-state.ts`; Phase-1 schedules; unit tests incl. Appendix B goldens | Unit tests green; DECISIONS.md lists every resolution with source quotes |
+| **M1** | Fee verification + engine core | Re-open every `VERIFIED` source and confirm; resolve every `PARTIAL`/`UNVERIFIED` item for all launch pages (record quotes/decisions); attempt Copart/IAA table transcription and decide include/exclude (§3.2); `money.ts`, `primitives.ts`, `types.ts`, `solve.ts`, `compare.ts`, `url-state.ts`; all schedules; unit tests incl. Appendix B goldens | Unit tests green; DECISIONS.md lists every resolution with source quotes |
 | **M2** | Layout, design system, SEO, ads | Tokens/CSS, BaseLayout, CalcLayout, Header/Footer/Breadcrumbs/Theme, Seo/JsonLd, Faq, SourceNote, LastVerified, AdSlot/AdSenseScript, ads.txt/robots endpoints, registry, favicon/OG via script | Site QA on placeholder pages passes |
 | **M3** | Calculator components | PlatformCalculator, inputs, ResultsPanel, BreakdownTable, SplitBar, ModeSwitch, CompareTool, WorkedExamples, FeeTable, ComparisonTable, Share | Component e2e tests green |
-| **M4** | Phase-1 pages | Home, 2 hubs, 8 marketplace pages, 7 payment pages, 2 comparisons, trust/legal pages, fee-history seed | Full `npm test` green |
-| **M5** | Phase-2 | Phase-2 schedules (after verification), pages, tests | Full `npm test` green |
-| **M6** | Phase-3 (conditional) | Copart/IAA only if tables fully verified; else README TODO with reasons | — |
+| **M4** | Pages: core + highest-value | Home, 2 hubs, 8 marketplace + 7 payment calculators, trust/legal pages, fee-history seed | Full `npm test` green |
+| **M5** | Pages: comparisons + remaining | 7 comparison pages, 11 remaining calculators | Full `npm test` green |
+| **M6** | Conditional pages | Copart/IAA if M1 verified their tables; otherwise README TODO with reasons and pages disabled | Full `npm test` green either way |
 | **M7** | QA & polish | Budgets, axe, screenshots reviewed and visual fixes, `check-sources` script works, README complete | Everything green |
-| **M8** | Handoff | Final report (§0.8), optional CI, push branch | Pushed; report delivered |
+| **M8** | Handoff (single launch) | Final report (§0.8), optional CI, push branch. The whole site is deployed in one release only after M7 is green | Pushed; report delivered |
 
 ---
 
 ## 20. Definition of done
 
-- [ ] All Phase 1 and Phase 2 pages exist with specified titles/metas/H1s/content/FAQs/word counts; Phase 3 built or documented as skipped with reasons.
+- [ ] All 43 launch pages exist with specified titles/metas/H1s/content/FAQs/word counts; Copart/IAA built with verified tables or documented as skipped with reasons.
 - [ ] Every shipped schedule: `status` verified (or unverified fields exposed as editable inputs with a confirm note), sources with quotes, `verifiedAt` ≤ 180 days old.
 - [ ] All Appendix B golden cases pass (updated only if verification changed a rule — with the change documented).
 - [ ] Reverse mode returns the minimum price on every calculator; compare tool equals individual calculators.
@@ -795,8 +795,8 @@ This site lives or dies on current data. Build these into the repo:
 ## 21. Post-launch checklist (for the human owner)
 
 1. Register `afterfeescalc.com` (or alternative); deploy on Cloudflare Pages with env vars.
-2. Search Console: verify, submit sitemap, request indexing of home, hubs and Phase-1 calculators.
-3. Apply for AdSense after Phase-1 + trust pages are live; then set client + slot IDs, enable EEA/UK consent + US state regulations, redeploy, check ads.txt.
+2. Search Console: verify, submit sitemap, request indexing of the home page, the hubs and the highest-value calculators. The rest are found through the sitemap and internal links.
+3. Apply for AdSense once the site is live (launching all pages together makes the application stronger); then set client + slot IDs, enable EEA/UK consent + US state regulations, redeploy, check ads.txt.
 4. **Monthly:** `npm run sources`; update changed fees the same day (being first with correct new fees is a ranking and trust advantage — add a Fee updates entry).
 5. Links/visibility: answer pricing/fee questions genuinely in reseller communities (r/Flipping, r/poshmark, r/Depop, r/Etsy, r/EtsySellers, r/whatnotapp, r/stripe, r/smallbusiness — follow each community's self-promotion rules); reseller newsletters/YouTubers; small-business directories; a free embeddable fee widget (later).
 6. Track rankings in OpenSEO (project "Micro-Tools Niche Research"; saved clusters `cluster-ebay-fee-calculator` (54 keywords) and `cluster-stripe-fee-calculator` (34 keywords)).
@@ -1008,13 +1008,13 @@ Sources: https://kdp.amazon.com/en_US/help/topic/G200644210 (eBook royalties) ·
 - Paperback: royalty **50% or 60%** depending on list price and marketplace (**verify threshold**); printing cost = fixed + page count × per-page (by ink type, trim size, marketplace) — **transcribe the full table**. KDP's own example: $9.99 list, 250 pages → royalty ≈ $5.99 at 60% minus printing ≈ $4.00 → ≈ $1.99 per copy (use as a golden test once the table is transcribed).
 
 ### A.21 Copart — UNVERIFIED (official fee pages returned empty bodies to a plain fetch; JS-rendered)
-Try: https://www.copart.com/content/us/en/member-services/member-fees and Copart's member-fee schedules for licensed/non-licensed, secured/unsecured payment, clean/non-clean title. Needs: buyer-fee tier table (bid ranges → fee, % above top tier), virtual/internet bid fee tiers, gate fee, environmental fee, title mailing fee, broker fees. Phase 3 only.
+Try: https://www.copart.com/content/us/en/member-services/member-fees and Copart's member-fee schedules for licensed/non-licensed, secured/unsecured payment, clean/non-clean title. Needs: buyer-fee tier table (bid ranges → fee, % above top tier), virtual/internet bid fee tiers, gate fee, environmental fee, title mailing fee, broker fees. Conditional page (§3.2).
 
 ### A.22 IAA (IAAI) — PARTIAL
 Sources: https://www.iaai.com/marketing/standard-iaa-licensed-buyer-fees · https://www.iaai.com/marketing/standard-iaa-non-licensed-buyer-fees · https://www.iaai.com/Marketing/buyer-fees
 - Segments: Licensed standard volume ("24 or fewer units purchased, or total vehicle sales less than $75,000 in the past 12 months, OR have 5 or more bidder accounts"), Licensed high volume (25+ units AND $75,000+ AND < 5 bidder accounts), Non-licensed.
 - Tier tables and internet/proxy bid fee tables are **images** labelled "Effective November 4, 2024" — must be transcribed.
-- Ancillary (Effective October 1, 2026): Service fee **$105 per unit**; Title-handling fee **$20**; Premium Imagery Set fee **$10** (eligible vehicles); EH&S and fuel surcharge (no amount); storage varies by branch. Phase 3 only.
+- Ancillary (Effective October 1, 2026): Service fee **$105 per unit**; Title-handling fee **$20**; Premium Imagery Set fee **$10** (eligible vehicles); EH&S and fuel surcharge (no amount); storage varies by branch. Conditional page (§3.2).
 
 ---
 
@@ -1227,7 +1227,7 @@ Desktop US SERPs read 2026-11-14 (each read 3× and merged; "s1/s2/s3" = appeare
 | poshmark fees (1.9k/0) | zipsale.co.uk, donotpay, **poshmark-calculator.lovable.app (#2, s3)**, sikayetvar (complaint site), Pinterest, sellerfeecalc, Facebook | Very weak |
 | mercari fees (1.3k/0) | sellura.io, 3dsellers, Facebook, resellcalendar (fee-change news), thefreebieguy, flowlister, PR Newswire, sellraze, getflippd, Reddit r/Flipping | Weak; fee-change confusion = content opportunity |
 | whatnot fee calculator (1.6k/0) | Play Store app, flipsail, exportyourstore, Facebook, whatnotfeecalculator.com (exact match, 75 spam RD), drapify, getflippd, **Reddit r/whatnotapp (#8)** | HIGH (2/3) |
-| copart fee calculator (4.4k/0) | advancemotorsllc tool, stat.vin, Spanish-language tools, salvageauctionestimator, caromoto, a forum thread, carflipiq, Facebook, copart.com, Scribd PDF of fee schedule | Weak (phase 3, data-gated) |
+| copart fee calculator (4.4k/0) | advancemotorsllc tool, stat.vin, Spanish-language tools, salvageauctionestimator, caromoto, a forum thread, carflipiq, Facebook, copart.com, Scribd PDF of fee schedule | Weak (conditional, data-gated) |
 | iaai fee calculator (1.3k/0) | iaaicalculator.com (exact match, s3), iaai.com, help.iaai.com, remarketspace, carflipiq, caromoto, mercedesforum thread, feecalculator.us | Moderate |
 | stripe fee calculator (1.6k/4) | stripe.com, depositfix (1,038 RD side page), random subdomain `fees.c-dj3dw.com` (#2), renlar (266 RD), navfuse, tradly, nocutsell, feexio, globalfeecalculator, feeprobe, anchorclick subdomain | HIGH (2/3) |
 | paypal fee calculator (18.1k/32) | upseotools, novo.co, freetoolsuite, chargeflow, calc.ninfrock.com (s3), weareindy, nestify, rabetweb, cloudways, newisty, bizcalcs, payable.at — small tools despite KD 32 | Stretch but beatable |
